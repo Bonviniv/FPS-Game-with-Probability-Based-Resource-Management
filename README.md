@@ -1,2 +1,2 @@
 # PI
-This project blends mathematical distributions with a zombie-themed first-person shooter (FPS). It features survival mechanics, with resource management like time, ammo, and enemy spawns. Distributions such as Rayleigh, Normal, and Beta were used to model key gameplay elements like enemy appearances and resource drops.
+This project combined concepts from **mathematical distributions** with the development of a **first-person shooter (FPS)** game involving zombies. The game focused on survival mechanics, such as managing resources like time, ammo, and enemy spawns. Various mathematical distributions, like Rayleigh, Normal, and Beta, were used to model different gameplay elements, including enemy spawns, ammo drops, and timing of events.
