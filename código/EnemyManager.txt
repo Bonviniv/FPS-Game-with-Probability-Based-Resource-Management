@@ -1,0 +1,190 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System.IO;
+using MathNet.Numerics;
+
+using static TMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
+
+public class EnemyManager : MonoBehaviour
+{
+    public Transform[] m_SpawnPoints;
+    public GameObject m_EnemyPrefab;
+    public int NumEnemiesInit;
+    public int NumEnemiesTotal;
+    public int spawnId;
+    public int nextSpawn;
+    public float alpha;
+    public float beta;
+    public float lowerLimit;
+    public float upperLimit;
+    public float delay;
+    public int control;
+    public NextSpawn_Display nextSpawnInst;
+    public int toKill;
+    private bool spawning;
+    public int NumEnemiesTotalFix;
+    public double desvRey;
+    public bool isPaused = false;
+    
+    // Start is called before the first frame update
+    
+    public void Start()
+    {
+        spawning = false;
+        nextSpawnInst = FindObjectOfType<NextSpawn_Display>();
+        delay = 0;
+        control = 0;
+        alpha = 3f;
+        beta = 1.5f;
+        lowerLimit = 0.5f;
+        desvRey = Mathf.Sqrt(2) / 2;
+
+
+        //NumEnemiesTotal = 50;
+        NumEnemiesTotal = (int)(rayleighInv(desvRey)*50);
+        print(NumEnemiesTotal);
+        NumEnemiesTotalFix = NumEnemiesTotal;
+
+
+        NumEnemiesInit = (int)(NumEnemiesTotal*0.25);
+
+        spawnNewEnemyInit();
+        toKill = NumEnemiesTotal;
+
+
+    }
+
+
+    public void Update()
+    {
+       
+ StartCoroutine(CalculateAndDelay());
+        
+    }
+    IEnumerator CalculateAndDelay()
+    {
+        
+        if (NumEnemiesTotal > 0)
+        {
+            if (!spawning)
+            {
+             spawning = true;
+             delay = (float)(betaInvTrunc( alpha, beta, lowerLimit)*7);
+             nextSpawnInst.updatCountDown(delay);
+             yield return new WaitForSeconds((int)delay);
+             spawnNewEnemy();
+             spawning = false;
+
+            }
+        
+    }
+        }
+       
+
+    private void OnEnable()
+    {
+        zombieMoviment.OnEnemyKilledCount += countKills;
+    }
+
+    void spawnNewEnemy()
+    {
+        if (NumEnemiesTotal > 0)
+        {
+            spawnId = Mathf.RoundToInt(Random.Range(0f, m_SpawnPoints.Length - 1));
+            Instantiate(m_EnemyPrefab, m_SpawnPoints[spawnId].transform.position, Quaternion.identity);
+            countEnemies();
+
+        }
+    }
+    void countKills()
+    {
+        if (toKill > 0)
+        {
+            toKill--;
+        }
+    }
+    void countEnemies()
+    {
+        if (NumEnemiesTotal > 0)
+        {
+            NumEnemiesTotal--;
+        }
+    }
+    void spawnNewEnemyInit()
+    {
+        List<int> usedIndices = new List<int>();
+
+        for (int i = 0; i < NumEnemiesInit; i++)
+        {
+            int spawnId;
+
+            do
+            {
+                spawnId = Mathf.RoundToInt(Random.Range(0f, m_SpawnPoints.Length - 1));
+            } while (usedIndices.Contains(spawnId));
+
+            // Adicione o spawnId à lista de índices usados
+            usedIndices.Add(spawnId);
+
+            Instantiate(m_EnemyPrefab, m_SpawnPoints[spawnId].transform.position, Quaternion.identity);
+            NumEnemiesTotal--;
+        }
+    }
+   
+    double rayleighInv(double desv)
+    {
+        float s = -2 * Mathf.Log(1 - UnityEngine.Random.Range((0f), (1f)));
+        return desv * Mathf.Sqrt(s);
+
+        //F(x)= 1-exp[(-x^2)/(2o^2))] ->F^(-1)=o√(-2ln(1-x), x[0,1]
+    }
+
+    double betaInvTrunc(double v, double w, double a)
+    //v,w,Lim inf
+    {
+        //trunc[0.5,1], v=3,w=1.5 -> Y= F^(-1)(x)((F(a)+[F(b)-F(a)]U), U[0,1]
+        //F(x)=Bx(v,w)/B(v,w) -> Y= F^(-1)( (B0(v,w)/B(v,w))+[(B1(v,w)/B(vw))-(B0(v,w)/B(vw))]U)
+        //                       
+        // Bx(v,w)=0Sx((t^(v-1))*((1-t)^(w-1)))dt
+        // B(v,w)=0S1((t^(v-1))*((1-t)^(w-1)))dt
+
+        //F(a)=( integral_0^0.5 t^(3 - 1) (1 - t)^(1.5 - 1) dt)/( integral_0^1 t^(3 - 1) (1 - t)^(1.5 - 1) dt)=0.2155553
+        //F(b)=( integral_0^x t^(3 - 1) (1 - t)^(1.5 - 1) dt)/( integral_0^1 t^(3 - 1) (1 - t)^(1.5 - 1) dt)=1
+
+        //Y=F^(-1)(0.2155553[1-0.2155553]U)
+
+        double funca = SpecialFunctions.BetaIncomplete(v, w, a) / SpecialFunctions.Beta(v, w);
+        double arg = funca + (1 - funca) * UnityEngine.Random.Range((0f), (1f));
+        return (betaInv(v, w, arg));
+
+    }
+
+    double betaInv(double v, double w, double x)
+    {
+        double lowerBound = 0.0;
+        double upperBound = 1.0;
+        double epsilon = 1e-6;
+
+        while (upperBound - lowerBound > epsilon)
+        {
+            double middle = (lowerBound + upperBound) / 2;
+            double cdfValue = CDFBeta(v, w, middle);
+
+            if (cdfValue < x)
+            {
+                lowerBound = middle;
+            }
+            else
+            {
+                upperBound = middle;
+            }
+        }
+        return (lowerBound + upperBound) / 2;
+    }
+    double CDFBeta(double v, double w, double p)
+    {
+        return SpecialFunctions.BetaIncomplete(v, w, p) / SpecialFunctions.Beta(v, w);
+    }
+
+}
